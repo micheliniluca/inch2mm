@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calcolatrice ft·in·mm</title>
+<meta name="description" content="Calcolatrice per lunghezze, aree e volumi in piedi-pollici con frazioni e in millimetri.">
+<meta name="theme-color" content="#1a2027">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: calculatore a sinistra (larghezza telefono), pannello conversioni + storico a destra; su mobile in colonna */
+:root{
+  --bg:#dfe4ea; --surface:#eef1f5; --display:#fafcfd; --ink:#14202b; --muted:#5b6977; --line:#c3ccd5;
+  --ft:#2d6db3; --ft-ink:#fff; --ft-soft:#d3e0ef; --ft-soft-ink:#1f4f86;
+  --in:#2f8a47; --in-ink:#fff; --in-soft:#d4e8d9; --in-soft-ink:#1d6532;
+  --frac:#4d8a5d; --frac-strong:#2f8a47;
+  --op:#e9a23b; --op-ink:#2b1b02;
+  --fn:#cfd6de; --fn-ink:#16212b;
+  --danger:#c84545; --danger-ink:#fff;
+  --warn:#b4471f;
+  --f-ui:"Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-num:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --kh:clamp(44px, 6.2vh, 58px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2027; --display:#0c1115; --ink:#e8eef3; --muted:#8b99a6; --line:#2a333c;
+  --ft:#2f74c2; --ft-soft:#1f2d3c; --ft-soft-ink:#9cc0ea;
+  --in:#379650; --in-soft:#1d3125; --in-soft-ink:#9fd5ad;
+  --frac:#2b5a37; --frac-strong:#379650;
+  --op:#eea63e; --fn:#262e37; --fn-ink:#e4eaef; --danger:#c94b4b; --warn:#f08a5d;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --surface:#1a2027; --display:#0c1115; --ink:#e8eef3; --muted:#8b99a6; --line:#2a333c;
+  --ft:#2f74c2; --ft-soft:#1f2d3c; --ft-soft-ink:#9cc0ea;
+  --in:#379650; --in-soft:#1d3125; --in-soft-ink:#9fd5ad;
+  --frac:#2b5a37; --frac-strong:#379650;
+  --op:#eea63e; --fn:#262e37; --fn-ink:#e4eaef; --danger:#c94b4b; --warn:#f08a5d;
+  color-scheme:dark;
+}
+html,body{background:var(--bg); color:var(--ink)}
+body{font-family:var(--f-ui); font-size:15px; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); padding-block:max(16px, env(safe-area-inset-top,0px)) max(32px, env(safe-area-inset-bottom,0px)); margin:0}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+button{font:inherit; color:inherit; border:0; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+
+.app{display:grid; grid-template-columns:minmax(0,460px) minmax(0,1fr); gap:28px; max-width:1000px; margin:0 auto; align-items:start}
+@media (max-width:860px){ .app{grid-template-columns:minmax(0,1fr); max-width:460px} }
+
+header.top{display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:10px}
+header.top h1{font-size:20px; font-weight:700; margin:0; letter-spacing:.01em; text-wrap:balance}
+header.top .k{font-family:var(--f-num); font-size:11.5px; color:var(--muted)}
+
+.calc{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:10px; display:flex; flex-direction:column; gap:8px}
+
+/* Display */
+.disp{background:var(--display); border:1px solid var(--line); border-radius:11px; padding:8px 12px 10px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.disp .row1{display:flex; align-items:center; gap:8px; min-height:22px}
+.tag{font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line); border-radius:5px; padding:1px 6px; flex:none}
+.expr{flex:1; min-width:0; display:flex; justify-content:flex-end; overflow:hidden; font-family:var(--f-num); font-size:13.5px; color:var(--muted)}
+.expr span{white-space:nowrap}
+.expr.err{color:var(--warn)}
+.big{font-family:var(--f-num); font-weight:500; font-size:clamp(28px, 8.5vw, 40px); line-height:1.15; text-align:right; white-space:nowrap; overflow-x:auto; scrollbar-width:none; font-variant-numeric:tabular-nums}
+.big::-webkit-scrollbar{display:none}
+.mark{font-size:.5em; vertical-align:super; color:var(--muted); margin-left:2px}
+.sub{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.prev{font-family:var(--f-num); font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.sec{font-family:var(--f-num); font-size:17px; color:var(--ink); opacity:.82; white-space:nowrap; text-align:right}
+
+.chips{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; background:var(--display); border:1px solid var(--line); border-radius:10px; padding:3px}
+.chips button{background:transparent; border-radius:7px; padding:6px 0; font-weight:600; font-size:14px; color:var(--muted)}
+.chips button[aria-pressed="true"]{background:var(--ink); color:var(--display)}
+
+/* Tastierini */
+.pads{display:grid; grid-template-columns:3fr 3fr 1.05fr; gap:8px}
+.pad{display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:var(--kh); gap:5px; border-radius:11px; padding:3px; outline:2px solid transparent; transition:outline-color .15s}
+.pad.active{outline-color:var(--line)}
+.pad .units{grid-column:1/-1; display:grid; grid-template-columns:repeat(3,1fr); gap:4px; align-self:stretch}
+.key{border-radius:9px; font-size:24px; font-weight:600; box-shadow:inset 0 -3px 0 rgba(0,0,0,.2); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; user-select:none; transition:transform .05s, filter .1s}
+.key:active{transform:translateY(1px); filter:brightness(1.12)}
+.key small{font-size:11px; font-weight:500; opacity:.75; margin-top:3px; letter-spacing:.02em}
+.A .key{background:var(--ft); color:var(--ft-ink)}
+.B .key{background:var(--in); color:var(--in-ink)}
+.u{border-radius:7px; font-size:17px; font-weight:600}
+.A .u{background:var(--ft-soft); color:var(--ft-soft-ink)}
+.B .u{background:var(--in-soft); color:var(--in-soft-ink)}
+.A .u[aria-pressed="true"]{background:var(--ft); color:var(--ft-ink)}
+.B .u[aria-pressed="true"]{background:var(--in); color:var(--in-ink)}
+
+.fracwrap{position:relative; padding:3px 0}
+.fracs{position:absolute; inset:3px 0; overflow-y:auto; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; overscroll-behavior:contain; border-radius:9px}
+.fracs .key{flex:none; height:calc(var(--kh) * .82); font-size:17px; background:var(--frac); color:#fff}
+.fracs .key.s{background:var(--frac-strong); font-size:19px; font-weight:700}
+.fracs .key[aria-pressed="true"]{outline:2px solid var(--ink); outline-offset:-2px}
+
+.calc.num .units, .calc.num .fracwrap, .calc.nofrac .fracwrap{opacity:.3; pointer-events:none}
+.calc.num .pad{outline-color:transparent}
+
+/* Funzioni e operatori */
+.lower{display:grid; grid-template-columns:3fr 4.05fr; gap:8px}
+.grid2{display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:calc(var(--kh) * 1.02); gap:5px; padding:0 3px}
+.fn{background:var(--fn); color:var(--fn-ink); font-size:16px}
+.fn b{font-size:19px; font-weight:700}
+.op{background:var(--op); color:var(--op-ink); font-size:28px}
+.op.eq{font-size:32px}
+.danger{background:var(--danger); color:var(--danger-ink); font-size:20px}
+.span2{grid-column:span 2}
+.count{display:inline-block; min-width:20px; padding:2px 5px; border-radius:5px; background:var(--display); color:var(--ink); font-size:13px; font-family:var(--f-num); margin-right:6px}
+
+/* Pannelli laterali */
+.side{display:flex; flex-direction:column; gap:22px; min-width:0}
+.panel h2{font-size:13px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; display:flex; justify-content:space-between; align-items:center; gap:8px}
+.conv{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface)}
+.crow{display:grid; grid-template-columns:minmax(0,1fr) auto 36px; align-items:center; border-top:1px solid var(--line)}
+.crow:first-child{border-top:0}
+.crow .pick{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 4px 10px 12px; background:transparent; text-align:left; min-width:0; grid-column:1/3}
+.crow .lab{color:var(--muted); font-size:14px; white-space:nowrap}
+.crow .val{font-family:var(--f-num); font-size:16px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crow.on{background:var(--display)}
+.crow.on .lab{color:var(--ink); font-weight:600}
+.cp{height:100%; background:transparent; color:var(--muted); display:flex; align-items:center; justify-content:center}
+.cp:hover{color:var(--ink)}
+.cp svg{width:16px; height:16px}
+
+.hist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--surface); max-height:420px; overflow-y:auto}
+.hitem{display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding:9px 12px; background:transparent; border-top:1px solid var(--line); text-align:right}
+.hitem:first-child{border-top:0}
+.hitem:hover{background:var(--display)}
+.hitem .x{font-family:var(--f-num); font-size:12.5px; color:var(--muted); max-width:100%; overflow-wrap:anywhere}
+.hitem .r{font-family:var(--f-num); font-size:17px}
+.hitem .r i{font-style:normal; color:var(--muted); font-size:13px; margin-left:8px}
+.empty{padding:16px 12px; color:var(--muted); font-size:14px; line-height:1.45}
+.linkbtn{background:transparent; color:var(--muted); font-size:13px; letter-spacing:.02em; text-transform:none; padding:2px 6px; border-radius:5px; border:1px solid var(--line)}
+.linkbtn.arm{color:var(--danger-ink); background:var(--danger); border-color:var(--danger)}
+.help{font-size:13.5px; color:var(--muted); line-height:1.5; margin:0}
+.help kbd{font-family:var(--f-num); font-size:12px; border:1px solid var(--line); border-radius:4px; padding:0 4px; background:var(--surface); color:var(--ink)}
+
+.toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--display); padding:8px 14px; border-radius:8px; font-family:var(--f-num); font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:calc(100% - 32px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+@keyframes shake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+.disp.shake{animation:shake .3s}
+@media (prefers-reduced-motion: reduce){ .disp.shake{animation:none} .toast{transition:none} .key{transition:none} }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <main>
+    <header class="top">
+      <h1>Calcolatrice ft·in·mm</h1>
+      <span class="k">1″ = 25.4 mm · 1′ = 304.8 mm (esatti)</span>
+    </header>
+    <div class="calc" id="calc">
+      <div class="disp" id="disp" aria-live="polite">
+        <div class="row1"><span class="tag" id="tag">Lunghezza</span><div class="expr" id="expr"><span></span></div></div>
+        <div class="big" id="big">0</div>
+        <div class="sub"><span class="prev" id="prev"></span><span class="sec" id="sec"></span></div>
+      </div>
+
+      <div class="chips" id="chips" role="group" aria-label="Unità del risultato"></div>
+
+      <div class="pads">
+        <div class="pad A" id="padA" aria-label="Unità maggiori: piedi, iarde, metri">
+          <button class="key" data-d="a:1">1</button><button class="key" data-d="a:2">2</button><button class="key" data-d="a:3">3</button>
+          <button class="key" data-d="a:4">4</button><button class="key" data-d="a:5">5</button><button class="key" data-d="a:6">6</button>
+          <button class="key" data-d="a:7">7</button><button class="key" data-d="a:8">8</button><button class="key" data-d="a:9">9</button>
+          <button class="key" data-d="a:0">0</button><button class="key" data-d="a:.">.</button><button class="key" data-back="a" aria-label="Cancella cifra">←</button>
+          <div class="units">
+            <button class="u" data-unit="a:ft">ft</button><button class="u" data-unit="a:yd">yd</button><button class="u" data-unit="a:m">m</button>
+          </div>
+        </div>
+        <div class="pad B" id="padB" aria-label="Unità minori: pollici, millimetri, centimetri">
+          <button class="key" data-d="b:1">1</button><button class="key" data-d="b:2">2</button><button class="key" data-d="b:3">3</button>
+          <button class="key" data-d="b:4">4</button><button class="key" data-d="b:5">5</button><button class="key" data-d="b:6">6</button>
+          <button class="key" data-d="b:7">7</button><button class="key" data-d="b:8">8</button><button class="key" data-d="b:9">9</button>
+          <button class="key" data-d="b:0">0</button><button class="key" data-d="b:.">.</button><button class="key" data-back="b" aria-label="Cancella cifra">←</button>
+          <div class="units">
+            <button class="u" data-unit="b:in">in</button><button class="u" data-unit="b:mm">mm</button><button class="u" data-unit="b:cm">cm</button>
+          </div>
+        </div>
+        <div class="fracwrap"><div class="fracs" id="fracs" aria-label="Frazioni di pollice"></div></div>
+      </div>
+
+      <div class="lower">
+        <div class="grid2">
+          <button class="key fn" data-act="den"><b id="denLbl">1/16″</b><small>Precisione</small></button>
+          <button class="key fn" data-act="dec"><b id="decLbl">0.1</b><small>Decimali mm</small></button>
+          <button class="key fn" data-act="c"><b>C</b><small>Cancella voce</small></button>
+          <button class="key fn" data-act="copy"><b>Copia</b><small>Risultato</small></button>
+          <button class="key fn span2" data-act="hist"><span><span class="count" id="hcount">0</span>Storico</span></button>
+          <button class="key danger span2" data-act="ac">Azzera tutto</button>
+        </div>
+        <div class="grid2">
+          <button class="key op" data-op="add" aria-label="Più">+</button>
+          <button class="key op" data-op="sub" aria-label="Meno">−</button>
+          <button class="key op" data-op="mul">×<small>Numero</small></button>
+          <button class="key op" data-op="div">÷<small>Numero</small></button>
+          <button class="key op" data-op="muld">×d<small>Dimensione</small></button>
+          <button class="key op" data-op="divd">÷d<small>Dimensione</small></button>
+          <button class="key op eq span2" data-act="eq" aria-label="Uguale">=</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="panel">
+      <h2><span>Conversioni</span><span id="convKind" style="letter-spacing:.04em;text-transform:none;font-weight:500"></span></h2>
+      <div class="conv" id="conv"></div>
+    </section>
+    <section class="panel" id="histPanel">
+      <h2><span>Storico</span><button class="linkbtn" id="clearHist">Svuota</button></h2>
+      <div class="hist" id="hist"></div>
+    </section>
+    <section class="panel">
+      <h2>Come si usa</h2>
+      <p class="help">Tastierino blu per piedi, iarde o metri; verde per pollici, mm o cm; colonna destra per le frazioni di pollice. Esempio: <kbd>5</kbd> blu, <kbd>4</kbd> verde, <kbd>3/8</kbd> = 5′ 4 3/8″. Per i millimetri scegli <kbd>mm</kbd> e digita sul verde.<br>
+      <b>× ÷ Numero</b> scala per un numero puro. <b>×d ÷d</b> moltiplicano o dividono dimensioni: lunghezza × lunghezza dà un'area, area × lunghezza un volume.<br>
+      Il segno <span style="font-family:var(--f-num)">+</span> o <span style="font-family:var(--f-num)">−</span> accanto a una frazione indica che il valore reale è poco sopra o sotto l'arrotondamento.<br>
+      Tastiera: cifre nel tastierino evidenziato (<kbd>←</kbd> <kbd>→</kbd> per cambiarlo), <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd>, <kbd>Invio</kbd>, <kbd>Esc</kbd> azzera.</p>
+    </section>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(()=>{
+const U={ft:304.8,yd:914.4,m:1000,in:25.4,mm:1,cm:10};
+const SYM={ft:'′',yd:' yd',m:' m',in:'″',mm:' mm',cm:' cm'};
+const METRIC={m:1,mm:1,cm:1};
+const IMP={ftin:1,in:1,ft:1,yd:1};
+const OPS={add:'+',sub:'−',mul:'×',div:'÷',muld:'×',divd:'÷'};
+const PRIMS=[['ftin','ft‑in'],['in','in'],['ft','ft'],['yd','yd'],['mm','mm'],['cm','cm'],['m','m']];
+const DIM=['Numero','Lunghezza','Area','Volume'];
+const FR=[[1,2,1],[1,4,1],[3,4,1],[1,8],[3,8],[5,8],[7,8],[1,16],[3,16],[5,16],[7,16],[9,16],[11,16],[13,16],[15,16]];
+const DENS=[8,16,32,64];
+
+const st={acc:null,op:null,a:'',b:'',fn:0,fd:0,aU:'ft',bU:'in',pad:'b',done:false,chain:'',lastExpr:'',hist:[],prim:'ftin',den:16,mmdec:1};
+const KEY='calc-ftin-mm-v1';
+try{const s=JSON.parse(localStorage.getItem(KEY)||'{}');
+  for(const k of ['aU','bU','prim','den','mmdec']) if(s[k]!==undefined) st[k]=s[k];
+  if(Array.isArray(s.hist)) st.hist=s.hist.slice(0,60);
+  if(!s.hist){ // esempio iniziale, marcato
+    st.hist=[{x:'5′ 4″ + 8′ 8 3/8″',v:(64+104.375)*25.4,p:1,ex:1},{x:'2400 mm × 3′ 6″',v:2400*42*25.4,p:2,ex:1}];
+  }
+}catch(_){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({aU:st.aU,bU:st.bU,prim:st.prim,den:st.den,mmdec:st.mmdec,hist:st.hist}))}catch(_){}}
+
+/* ---------- formattazione ---------- */
+function grp(s){let neg=s[0]==='-'; if(neg)s=s.slice(1); let [i,d]=s.split('.');
+  if(i.length>4) i=i.replace(/\B(?=(\d{3})+(?!\d))/g,' '); return (neg?'−':'')+i+(d!==undefined?'.'+d:'');}
+function fx(x,d){let s=x.toFixed(d); if(/^-0(\.0*)?$/.test(s)) s=s.slice(1); return grp(s);}
+function numStr(x){let s=String(parseFloat(x.toFixed(6))); if(s.includes('e')) s=x.toPrecision(6); return grp(s);}
+function gcd(a,b){return b?gcd(b,a%b):a}
+function ftin(mm,withFt){
+  const den=st.den, inch=mm/25.4, neg=inch<0, ab=Math.abs(inch), t=Math.round(ab*den)/den, diff=ab-t;
+  const mark=Math.abs(diff)<1e-7?'':(diff>0?'+':'−');
+  let ft=0,r=t; if(withFt){ft=Math.floor(t/12+1e-12); r=t-ft*12;}
+  const w=Math.floor(r+1e-12), n=Math.round((r-w)*den);
+  let fs=''; if(n){const g=gcd(n,den); fs=(n/g)+'/'+(den/g);}
+  let ip = w ? (fs? w+' '+fs : ''+w) : (fs || '0');
+  if(ft && !w && fs) ip='0 '+fs;
+  let s = (withFt && ft) ? ft+'′ '+ip+'″' : ip+'″';
+  if(neg && t>0) s='−'+s;
+  return {s,mark};
+}
+const L1={ftin:['Piedi‑pollici',v=>ftin(v,true)], in:['Pollici',v=>ftin(v,false)], ft:['Piedi decimali',v=>({s:fx(v/304.8,4)+' ft'})],
+  yd:['Iarde',v=>({s:fx(v/914.4,4)+' yd'})], mm:['Millimetri',v=>({s:fx(v,st.mmdec)+' mm'})],
+  cm:['Centimetri',v=>({s:fx(v/10,st.mmdec+1)+' cm'})], m:['Metri',v=>({s:fx(v/1000,st.mmdec+3)+' m'})]};
+const L2={ft2:['Piedi quadrati',v=>({s:fx(v/92903.04,3)+' ft²'})], in2:['Pollici quadrati',v=>({s:fx(v/645.16,2)+' in²'})],
+  yd2:['Iarde quadrate',v=>({s:fx(v/836127.36,3)+' yd²'})], m2:['Metri quadrati',v=>({s:fx(v/1e6,4)+' m²'})],
+  cm2:['Centimetri quadrati',v=>({s:fx(v/100,1)+' cm²'})], mm2:['Millimetri quadrati',v=>({s:fx(v,0)+' mm²'})]};
+const L3={ft3:['Piedi cubi',v=>({s:fx(v/28316846.592,3)+' ft³'})], in3:['Pollici cubi',v=>({s:fx(v/16387.064,1)+' in³'})],
+  yd3:['Iarde cube',v=>({s:fx(v/764554857.984,3)+' yd³'})], m3:['Metri cubi',v=>({s:fx(v/1e9,4)+' m³'})],
+  L:['Litri',v=>({s:fx(v/1e6,2)+' L'})], cm3:['Centimetri cubi',v=>({s:fx(v/1000,0)+' cm³'})]};
+const M2={ftin:'ft2',ft:'ft2',in:'in2',yd:'yd2',mm:'mm2',cm:'cm2',m:'m2'};
+const M3={ftin:'ft3',ft:'ft3',in:'in3',yd:'yd3',mm:'L',cm:'cm3',m:'m3'};
+function table(p){return p===1?L1:p===2?L2:p===3?L3:{n:['Numero',v=>({s:numStr(v)})]}}
+function keyFor(p,lk){return p===1?lk:p===2?M2[lk]:p===3?M3[lk]:'n'}
+function fmt(val,lk){const t=table(val.p); return t[keyFor(val.p,lk)][1](val.v)}
+function secKey(){return IMP[st.prim]?'mm':'ftin'}
+function secKeyArea(lk,p){ if(p<2) return lk; return IMP[st.prim]?'m':'ftin'; }
+
+/* ---------- inserimento ---------- */
+const hasEntry=()=>st.a!==''||st.b!==''||st.fn>0;
+function numMode(){ if(!st.op) return false; if(st.op==='mul'||st.op==='div') return true;
+  return (st.op==='add'||st.op==='sub') && st.acc && st.acc.p===0; }
+function entryVal(){ if(!hasEntry()) return null;
+  if(numMode()){const x=parseFloat(st.a||st.b); return isNaN(x)?null:{v:x,p:0};}
+  const a=parseFloat(st.a)||0,b=parseFloat(st.b)||0;
+  return {v:a*U[st.aU]+b*U[st.bU]+(st.fd?st.fn/st.fd*25.4:0),p:1};
+}
+function entryText(){
+  if(numMode()) return st.a||st.b||'0';
+  const parts=[]; if(st.a!=='') parts.push(st.a+SYM[st.aU]);
+  if(st.b!==''||st.fn){let t=st.b; if(st.fn) t=(t?t+' ':'')+st.fn+'/'+st.fd; parts.push(t+SYM[st.bU]);}
+  return parts.join(' ');
+}
+const entryMetric=()=>(st.a!==''&&st.aU==='m')||((st.b!==''||st.fn)&&!!METRIC[st.bU]);
+
+function apply(x,op,y){
+  switch(op){
+    case 'add': case 'sub':
+      if(x.p!==y.p) return {err:'Non si può sommare '+DIM[x.p].toLowerCase()+' e '+DIM[y.p].toLowerCase()};
+      return {val:{v:op==='add'?x.v+y.v:x.v-y.v,p:x.p}};
+    case 'mul': return {val:{v:x.v*y.v,p:x.p}};
+    case 'div': if(!y.v) return {err:'Divisione per zero'}; return {val:{v:x.v/y.v,p:x.p}};
+    case 'muld': if(x.p+y.p>3) return {err:'Oltre il volume non si può moltiplicare'}; return {val:{v:x.v*y.v,p:x.p+y.p}};
+    case 'divd': if(!y.v) return {err:'Divisione per zero'}; if(x.p-y.p<0) return {err:'Serve una dimensione maggiore al numeratore'}; return {val:{v:x.v/y.v,p:x.p-y.p}};
+  }
+}
+
+let errMsg='',errT;
+function flash(m){errMsg=m; clearTimeout(errT); errT=setTimeout(()=>{errMsg='';render()},2200);
+  const d=$('#disp'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); render();}
+
+function resetCalc(){st.acc=null;st.op=null;st.chain='';st.lastExpr='';st.done=false;clearEntry();}
+function clearEntry(){st.a='';st.b='';st.fn=0;st.fd=0;}
+function digit(pad,ch){
+  if(st.done) resetCalc();
+  const k=numMode()?'a':pad; st.pad=pad;
+  let s=st[k];
+  if(ch==='.'){ if(s.includes('.')) return; if(s==='') s='0'; }
+  else if(s==='0') s='';
+  if(s.replace('.','').length>=9) return;
+  st[k]=s+ch; render();
+}
+function back(pad){ if(st.done) return; const k=numMode()?(st.a?'a':'b'):pad; st[k]=st[k].slice(0,-1); render(); }
+function setFrac(n,d){ if(numMode()||METRIC[st.bU]) return; if(st.done) resetCalc(); st.fn=n; st.fd=d; st.pad='b'; render(); }
+function setUnit(pad,u){ if(pad==='a') st.aU=u; else {st.bU=u; if(METRIC[u]){st.fn=0;st.fd=0;}} st.pad=pad; save(); render(); }
+function doOp(o){
+  const e=entryVal();
+  if(e){
+    const txt=entryText();
+    if(st.acc===null||st.op===null){ st.acc=e; st.chain=txt; }
+    else { const r=apply(st.acc,st.op,e); if(r.err) return flash(r.err); st.acc=r.val; st.chain+=' '+OPS[st.op]+' '+txt; }
+    clearEntry();
+  } else {
+    if(st.acc===null) return;
+    if(st.done) st.chain=fmt(st.acc,st.prim).s;
+  }
+  st.op=o; st.done=false; render();
+}
+function eq(){
+  const e=entryVal();
+  if(st.op && e){
+    const r=apply(st.acc,st.op,e); if(r.err) return flash(r.err);
+    st.chain+=' '+OPS[st.op]+' '+entryText();
+    st.acc=r.val; st.lastExpr=st.chain;
+    st.hist=st.hist.filter(h=>!h.ex); st.hist.unshift({x:st.chain,v:r.val.v,p:r.val.p}); st.hist=st.hist.slice(0,60); save();
+    st.op=null; clearEntry(); st.done=true;
+  } else if(!st.op && e){ st.acc=e; st.chain=st.lastExpr=entryText(); clearEntry(); st.done=true; }
+  render();
+}
+function current(){ return entryVal() || st.acc; }
+
+/* ---------- copia ---------- */
+let toastT;
+function toast(m){const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1600);}
+function copy(text){
+  const done=()=>toast('Copiato: '+text);
+  try{ navigator.clipboard.writeText(text).then(done, ()=>fallback(text)); }catch(_){ fallback(text); }
+  function fallback(s){ const ta=document.createElement('textarea'); ta.value=s; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+    let ok=false; try{ok=document.execCommand('copy')}catch(_){} ta.remove(); ok?done():toast(s); }
+}
+
+/* ---------- render ---------- */
+const $=s=>document.querySelector(s);
+const calc=$('#calc');
+$('#fracs').innerHTML='<button class="key" data-frac="0/0" aria-label="Cancella frazione">←<small>fraz.</small></button>'+
+  FR.map(f=>`<button class="key${f[2]?' s':''}" data-frac="${f[0]}/${f[1]}">${f[0]}/${f[1]}</button>`).join('');
+$('#chips').innerHTML=PRIMS.map(([k,l])=>`<button data-prim="${k}">${l}</button>`).join('');
+const CP='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M10.5 5V3.5A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg>';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mk=m=>m?`<span class="mark">${m}</span>`:'';
+
+function render(){
+  const nm=numMode(), e=entryVal(), cur=current();
+  calc.classList.toggle('num',nm);
+  calc.classList.toggle('nofrac',nm||!!METRIC[st.bU]);
+  $('#padA').classList.toggle('active',st.pad==='a');
+  $('#padB').classList.toggle('active',st.pad==='b');
+  document.querySelectorAll('[data-unit]').forEach(b=>{const [p,u]=b.dataset.unit.split(':'); b.setAttribute('aria-pressed',(p==='a'?st.aU:st.bU)===u);});
+  document.querySelectorAll('[data-frac]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.frac===st.fn+'/'+st.fd));
+  document.querySelectorAll('[data-prim]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.prim===st.prim));
+  $('#denLbl').textContent='1/'+st.den+'″';
+  $('#decLbl').textContent=st.mmdec?(0).toFixed(st.mmdec).slice(0,-1)+'1':'1';
+  $('#hcount').textContent=st.hist.filter(h=>!h.ex).length;
+
+  // display
+  let big='0', sec='', prev='', expr='';
+  if(e){
+    big=esc(entryText());
+    if(e.p===1){ const k=entryMetric()?(IMP[st.prim]?st.prim:'ftin'):(IMP[st.prim]?'mm':st.prim); const f=fmt(e,k); sec=esc(f.s)+mk(f.mark); }
+  } else if(st.acc){
+    const f=fmt(st.acc,st.prim); big=esc(f.s)+mk(f.mark);
+    if(st.acc.p>0){ const g=fmt(st.acc,secKey()); sec=esc(g.s)+mk(g.mark); }
+  }
+  if(st.op){
+    expr=esc(st.chain+' '+OPS[st.op]+(st.op==='muld'||st.op==='divd'?' (dim.)':''));
+    if(e){ const r=apply(st.acc,st.op,e); if(r.val){const f=fmt(r.val,st.prim); prev='= '+esc(f.s);} }
+  } else if(st.done) expr=esc(st.lastExpr+' =');
+  const ex=$('#expr'); ex.classList.toggle('err',!!errMsg); ex.firstElementChild.innerHTML=errMsg?esc(errMsg):expr;
+  $('#big').innerHTML=big; $('#sec').innerHTML=sec; $('#prev').innerHTML=prev;
+  $('#big').scrollLeft=1e4;
+  $('#tag').textContent=e?(nm?'Numero':'Lunghezza'):(st.acc?DIM[st.acc.p]:'Lunghezza');
+
+  // conversioni
+  const p=cur?cur.p:1, t=table(p), pk=keyFor(p,st.prim);
+  $('#convKind').textContent=cur?DIM[p]:'';
+  $('#conv').innerHTML=Object.entries(t).map(([k,[lab,f]])=>{
+    const r=cur?f(cur.v):{s:'—'};
+    const lk = p===1?k:(Object.keys(p===2?M2:M3).find(x=>(p===2?M2:M3)[x]===k)) || st.prim;
+    return `<div class="crow${k===pk?' on':''}"><button class="pick" data-prim="${p===0?st.prim:lk}" ${p===0?'disabled':''}><span class="lab">${lab}</span><span class="val">${esc(r.s)}${mk(r.mark)}</span></button><button class="cp" data-copy="${esc(r.s)}" aria-label="Copia ${lab}" ${cur?'':'disabled'}>${CP}</button></div>`;
+  }).join('');
+
+  // storico
+  const H=$('#hist');
+  if(!st.hist.length) H.innerHTML='<div class="empty">I calcoli completati con = compaiono qui. Toccane uno per riprendere il risultato.</div>';
+  else H.innerHTML=st.hist.map((h,i)=>{const v={v:h.v,p:h.p}; const a=fmt(v,st.prim), b=h.p?fmt(v,secKey()):null;
+    return `<button class="hitem" data-h="${i}"><span class="x">${h.ex?'Esempio · ':''}${esc(h.x)}</span><span class="r">${esc(a.s)}${mk(a.mark)}${b?`<i>${esc(b.s)}</i>`:''}</span></button>`}).join('');
+}
+
+/* ---------- eventi ---------- */
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b||b.disabled) return;
+  const d=b.dataset;
+  if(d.d){const [p,c]=d.d.split(':'); digit(p,c);}
+  else if(d.back) back(d.back);
+  else if(d.unit){const [p,u]=d.unit.split(':'); setUnit(p,u);}
+  else if(d.frac){const [n,dd]=d.frac.split('/').map(Number); if(!n){ if(!st.done){st.fn=0;st.fd=0;render();} } else setFrac(n,dd);}
+  else if(d.op) doOp(d.op);
+  else if(d.prim){st.prim=d.prim; save(); render();}
+  else if(d.copy) copy(d.copy);
+  else if(d.h!==undefined){const h=st.hist[+d.h]; resetCalc(); st.acc={v:h.v,p:h.p}; st.lastExpr=h.x; st.done=true; render();}
+  else if(d.act){
+    switch(d.act){
+      case 'eq': eq(); break;
+      case 'c': if(hasEntry()) clearEntry(); else if(st.done) resetCalc(); else if(st.op) st.op=null; render(); break;
+      case 'ac': resetCalc(); render(); break;
+      case 'den': st.den=DENS[(DENS.indexOf(st.den)+1)%DENS.length]; save(); render(); break;
+      case 'dec': st.mmdec=(st.mmdec+1)%3; save(); render(); break;
+      case 'copy': { const c=current(); if(!c) return toast('Niente da copiare'); copy(fmt(c,st.prim).s); break; }
+      case 'hist': $('#histPanel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}); break;
+    }
+  }
+});
+const ch=$('#clearHist'); let armT;
+ch.addEventListener('click',()=>{
+  if(!ch.classList.contains('arm')){ch.classList.add('arm'); ch.textContent='Conferma'; clearTimeout(armT); armT=setTimeout(()=>{ch.classList.remove('arm'); ch.textContent='Svuota';},3000); return;}
+  st.hist=[]; save(); ch.classList.remove('arm'); ch.textContent='Svuota'; render(); toast('Storico svuotato');
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.metaKey||ev.ctrlKey||ev.altKey) return;
+  const k=ev.key;
+  if(/^[0-9.,]$/.test(k)){digit(st.pad,k===','?'.':k); ev.preventDefault();}
+  else if(k==='Backspace'){back(st.pad); ev.preventDefault();}
+  else if(k==='ArrowLeft'){st.pad='a'; render();}
+  else if(k==='ArrowRight'){st.pad='b'; render();}
+  else if(k==='+') doOp('add'); else if(k==='-') doOp('sub');
+  else if(k==='*'||k==='x') doOp('mul'); else if(k==='/'){doOp('div'); ev.preventDefault();}
+  else if(k==='Enter'||k==='='){ if(ev.target.closest&&ev.target.closest('button')) ev.target.blur(); eq(); ev.preventDefault();}
+  else if(k==='Escape'){resetCalc(); render();}
+  else if(k==='Delete'){clearEntry(); render();}
+});
+
+render();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
